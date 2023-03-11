@@ -102,8 +102,38 @@ int main(int argc, char **argv) {
     } else {
       DRIVER_ERROR(livox_node, "Init lds lidar failed!");
     }
+  } else if (data_src == kSourceLvxFile) {
+    DRIVER_INFO(livox_node, "Data Source is lvx2 file.");
+
+    std::string cmdline_file_path;
+    livox_node.getParam("cmdline_file_path", cmdline_file_path);
+    DRIVER_INFO(livox_node, "lvx2 file : %s", cmdline_file_path.c_str());
+    
+    do {
+      if (!IsFilePathValid(cmdline_file_path.c_str())) {
+        ROS_ERROR("File path invalid : %s !", cmdline_file_path.c_str());
+        break;
+      }
+      
+      std::string rosbag_file_path;
+      int path_end_pos = cmdline_file_path.find_last_of('.');
+      rosbag_file_path = cmdline_file_path.substr(0, path_end_pos);
+      rosbag_file_path += ".bag";
+      
+      LdsLvx *read_lvx = LdsLvx::GetInstance(publish_freq);
+      livox_node.lddc_ptr_->RegisterLds(static_cast<Lds *>(read_lvx));
+      livox_node.lddc_ptr_->CreateBagFile(rosbag_file_path);
+      
+      if ((read_lvx->Init(cmdline_file_path.c_str()))) {
+        DRIVER_INFO(livox_node, "Init lds lvx successfully!");
+      } else {
+        DRIVER_ERROR(livox_node, "Init lds lvx failed!");
+      }
+    } while (0);
   } else {
     DRIVER_ERROR(livox_node, "Invalid data src (%d), please check the launch file", data_src);
+    livox_node.lddc_ptr_->PrepareExit();
+    livox_node.exit_signal_.set_value();
   }
 
   livox_node.pointclouddata_poll_thread_ = std::make_shared<std::thread>(&DriverNode::PointCloudDataPollThread, &livox_node);

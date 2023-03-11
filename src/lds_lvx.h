@@ -29,6 +29,7 @@
 
 #include <memory>
 #include <atomic>
+#include <fstream>
 
 #include "lds.h"
 #include "comm/comm.h"
@@ -56,11 +57,19 @@ class LdsLvx final : public Lds {
   LdsLvx(const LdsLvx &) = delete;
   ~LdsLvx();
   LdsLvx &operator=(const LdsLvx &) = delete;
-
+  
+  void StartRead() { start_read_lvx_ = true; }
+  void StopRead() { start_read_lvx_ = false; }
+  bool IsStarted() { return start_read_lvx_; }
+  
   static void OnPointCloudsFrameCallback(uint32_t frame_index, uint32_t total_frame, PointFrame *point_cloud_frame, void *client_data);
 
  private:
   volatile bool is_initialized_;
+  std::ifstream inf_lvx2_;
+  uint32_t total_frame_;
+  std::shared_ptr<std::thread> t_read_lvx_;
+  volatile bool start_read_lvx_;
   static std::atomic_bool is_file_end_;
 };
 
