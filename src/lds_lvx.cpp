@@ -190,9 +190,9 @@ void LdsLvx::ReadLvxFile() {
       //             std::cout << "Length:" << pheader.length << std::endl;
       //             std::cout << "Frm counter:" << (int)pheader.frame_counter << std::endl;
       
-      //long long int ts = *reinterpret_cast<long long int*>(&pheader.timestamp[0]);
-      //point_cloud_frame.base_time = ts;
-      point_cloud_frame.base_time = std::chrono::high_resolution_clock::now().time_since_epoch().count();
+      long long int ts = *reinterpret_cast<long long int*>(&pheader.timestamp[0]);
+      point_cloud_frame.base_time = ts;
+      //point_cloud_frame.base_time = std::chrono::high_resolution_clock::now().time_since_epoch().count();
       
       // printf("timestampe: %lld\n", ts);
       
@@ -217,8 +217,8 @@ void LdsLvx::ReadLvxFile() {
           p.intensity = pdetail.reflectivity;
           p.line = i % line_num;
           p.tag = pdetail.tag;
-          //p.offset_time = ts + i;
-          p.offset_time = std::chrono::high_resolution_clock::now().time_since_epoch().count();
+          p.offset_time = ts;
+          //p.offset_time = std::chrono::high_resolution_clock::now().time_since_epoch().count();
           
           /*
           fdata.push_back(pdetail.x * 0.001f);
