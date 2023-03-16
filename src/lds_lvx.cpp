@@ -30,6 +30,7 @@
 #include <thread>
 #include <condition_variable>
 #include <mutex>
+#include <map>
 
 #include "lds_lvx.h"
 #include "lvx_file.h"
@@ -169,6 +170,9 @@ void LdsLvx::ReadLvxFile() {
     
     int bindx = 0;
     
+    std::map< std::uint32_t, std::vector<PointXyzlt> > points_maps;
+    
+    
     while (bindx < (int)(fraheader.next_offset - fraheader.curr_offset - sizeof(fraheader)))
     {
       BasePackHeader pheader;
@@ -176,13 +180,16 @@ void LdsLvx::ReadLvxFile() {
       bindx += sizeof(pheader);
       
       
-      PointFrame point_cloud_frame;
-      std::vector<PointXyzlt> points_clouds;
+      //PointFrame point_cloud_frame;
+      //std::vector<PointXyzlt> points_clouds;
       
-      point_cloud_frame.lidar_num = 1;
-      PointPacket &pkt = point_cloud_frame.lidar_point[0];
-      pkt.handle = pheader.lidar_id;
-      pkt.lidar_type = LidarProtoType::kLivoxLidarType; 
+      //point_cloud_frame.lidar_num = 1;
+      //PointPacket &pkt = point_cloud_frame.lidar_point[0];
+      //pkt.handle = pheader.lidar_id;
+      //pkt.lidar_type = LidarProtoType::kLivoxLidarType;
+      
+      std::vector<PointXyzlt> &points = points_maps[pheader.lidar_id];
+      
       
       
       
@@ -191,7 +198,7 @@ void LdsLvx::ReadLvxFile() {
       //             std::cout << "Frm counter:" << (int)pheader.frame_counter << std::endl;
       
       long long int ts = *reinterpret_cast<long long int*>(&pheader.timestamp[0]);
-      point_cloud_frame.base_time = ts;
+      //point_cloud_frame.base_time = ts;
       //point_cloud_frame.base_time = std::chrono::high_resolution_clock::now().time_since_epoch().count();
       
       // printf("timestampe: %lld\n", ts);
@@ -200,16 +207,18 @@ void LdsLvx::ReadLvxFile() {
       if (pheader.data_type == 1)
       {
         int pcount = pheader.length / 14;
-        points_clouds.resize(pcount);
-        pkt.points_num = pcount;
-        pkt.points = points_clouds.data();
+        //points_clouds.resize(pcount);
+        //pkt.points_num = pcount;
+        //pkt.points = points_clouds.data();
         //printf("pcount: %d\n", pcount);
+        
         
         for (int i = 0; i < pcount; i++)
         {
           ExtendRowPoint pdetail;
           inf_lvx2_.read((char*)(&pdetail), sizeof(pdetail));
-          PointXyzlt &p = points_clouds[i];
+          //PointXyzlt &p = points_clouds[i];
+          PointXyzlt p;
           
           p.x = pdetail.x * 0.001f;
           p.y = pdetail.y * 0.001f;
@@ -219,6 +228,8 @@ void LdsLvx::ReadLvxFile() {
           p.tag = pdetail.tag;
           p.offset_time = ts;
           //p.offset_time = std::chrono::high_resolution_clock::now().time_since_epoch().count();
+          
+          points.push_back(p);
           
           /*
           fdata.push_back(pdetail.x * 0.001f);
@@ -231,7 +242,7 @@ void LdsLvx::ReadLvxFile() {
         }
       } else if (pheader.data_type == 2) {
         int pcount = pheader.length / 8;
-        points_clouds.resize(pcount);
+        //points_clouds.resize(pcount);
         //printf("pcount: %d\n", pcount);
         for (int i = 0; i < pcount; i++)
         {
@@ -251,12 +262,38 @@ void LdsLvx::ReadLvxFile() {
         break;
       }
       
-      StorageLvxPointData(&point_cloud_frame);
+      //StorageLvxPointData(&point_cloud_frame);
       
       
       bindx += pheader.length;
       
     }
+    
+    /*
+    std::cout << points_maps.size() << std::endl;
+    for ( auto p = points_maps.begin(); p != points_maps.end(); ++p )
+    {
+      std::cout << "  " << p->first << " => " << p->second.size() << std::endl;
+    }
+    */
+    
+    PointFrame point_cloud_frame;
+    
+    point_cloud_frame.lidar_num = points_maps.size();
+    int i = 0;
+    for ( auto p = points_maps.begin(); p != points_maps.end(); ++p, ++i )
+    {
+      auto &pkt = point_cloud_frame.lidar_point[i];
+      pkt.handle = p->first;
+      pkt.lidar_type = LidarProtoType::kLivoxLidarType;
+      pkt.points = p->second.data();
+      pkt.points_num = p->second.size();
+      
+    }
+    
+    StorageLvxPointData(&point_cloud_frame);
+    
+    
     
     ++frame_cnt;
     auto diff = std::chrono::milliseconds(50) * frame_cnt + start_time - std::chrono::high_resolution_clock::now();
